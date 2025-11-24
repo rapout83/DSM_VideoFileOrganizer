@@ -22,6 +22,55 @@ SEASON_OVERRIDES = {}
 # --- CORE LOGIC FUNCTIONS (Keep as is, no changes needed for these helpers) ---
 
 
+def wait_for_file_stability(file_path, check_interval=1, stable_time=3, max_wait=60):
+    """
+    Wait until a file's size stops changing, indicating it's fully written.
+
+    Args:
+        file_path: Path object to the file
+        check_interval: Seconds between size checks (default: 1)
+        stable_time: Seconds the file must remain unchanged (default: 3)
+        max_wait: Maximum seconds to wait before giving up (default: 60)
+
+    Returns:
+        True if file is stable, False if max_wait exceeded or file doesn't exist
+    """
+    if not file_path.exists():
+        return False
+
+    last_size = -1
+    stable_count = 0
+    elapsed_time = 0
+
+    while elapsed_time < max_wait:
+        try:
+            current_size = file_path.stat().st_size
+
+            # File size hasn't changed and is greater than 0
+            if current_size == last_size and current_size > 0:
+                stable_count += 1
+
+                # File has been stable for the required duration
+                if stable_count >= (stable_time / check_interval):
+                    return True
+            else:
+                # Size changed, reset stability counter
+                stable_count = 0
+
+            last_size = current_size
+
+        except (OSError, FileNotFoundError):
+            # File was moved or deleted (possibly by another process)
+            return False
+
+        time.sleep(check_interval)
+        elapsed_time += check_interval
+
+    # Max wait time exceeded - proceed anyway but warn
+    print(f"⚠️  Warning: File stability timeout for {file_path.name}, proceeding anyway")
+    return True
+
+
 def setup_logging(log_dir):
     # ... (function body remains the same) ...
     log_path = Path(log_dir)
@@ -339,45 +388,11 @@ class FileEventHandler(FileSystemEventHandler):
     def on_closed(self, event):
         """Priority 1: File finished writing (best signal)."""
         if self._is_relevant(event):
-            print(f"--> EVENT: CLOSED for {Path(event.src_path).name}")
-            organize_single_file(
-                Path(event.src_path),
-                self.source_dir,
-                self.config_data,
-                self.auto_season,
-                self.log_file,
-            )
-
-    def on_moved(self, event):
-        """Priority 2: File moved into the directory (if supported)."""
-        # on_moved uses dest_path for the final location
-        file_path = Path(event.dest_path).resolve()
-        if not event.is_directory and file_path.parent == self.source_dir:
-            print(f"--> EVENT: MOVED for {file_path.name}")
-            organize_single_file(
-                file_path,
-                self.source_dir,
-                self.config_data,
-                self.auto_season,
-                self.log_file,
-            )
-
-    def on_created(self, event):
-        """
-        Priority 3: Fallback for move/copy operations that don't trigger on_moved/on_closed.
-        Includes a 1-second delay to ensure on_closed runs first if it's a fast write.
-        """
-        if self._is_relevant(event):
             file_path = Path(event.src_path)
-            print(
-                f"--> EVENT: CREATED for {file_path.name} (Waiting 1s for potential CLOSE event)"
-            )
+            print(f"--> EVENT: CLOSED for {file_path.name}")
 
-            # CRITICAL DELAY: Allows a quick 'on_closed' event to move the file first.
-            time.sleep(1)
-
-            # The file may no longer exist if on_closed already moved it.
-            if file_path.exists():
+            # Wait for file to be stable before processing
+            if wait_for_file_stability(file_path):
                 organize_single_file(
                     file_path,
                     self.source_dir,
@@ -385,6 +400,51 @@ class FileEventHandler(FileSystemEventHandler):
                     self.auto_season,
                     self.log_file,
                 )
+            else:
+                print(f"⚠️  Skipping {file_path.name} - file no longer exists or unstable")
+
+    def on_moved(self, event):
+        """Priority 2: File moved into the directory (if supported)."""
+        # on_moved uses dest_path for the final location
+        file_path = Path(event.dest_path).resolve()
+        if not event.is_directory and file_path.parent == self.source_dir:
+            print(f"--> EVENT: MOVED for {file_path.name}")
+
+            # Wait for file to be stable before processing
+            if wait_for_file_stability(file_path):
+                organize_single_file(
+                    file_path,
+                    self.source_dir,
+                    self.config_data,
+                    self.auto_season,
+                    self.log_file,
+                )
+            else:
+                print(f"⚠️  Skipping {file_path.name} - file no longer exists or unstable")
+
+    def on_created(self, event):
+        """
+        Priority 3: Fallback for move/copy operations that don't trigger on_moved/on_closed.
+        Waits for file stability before processing.
+        """
+        if self._is_relevant(event):
+            file_path = Path(event.src_path)
+            print(f"--> EVENT: CREATED for {file_path.name}")
+
+            # Wait for file to be stable before processing
+            # This ensures the file is fully written before we attempt to move it
+            if wait_for_file_stability(file_path):
+                # Double-check file still exists (might have been moved by on_closed)
+                if file_path.exists():
+                    organize_single_file(
+                        file_path,
+                        self.source_dir,
+                        self.config_data,
+                        self.auto_season,
+                        self.log_file,
+                    )
+            else:
+                print(f"⚠️  Skipping {file_path.name} - file no longer exists or unstable")
 
 
 def process_existing_files(source_dir, config_data, auto_season, log_file):
