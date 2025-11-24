@@ -1,0 +1,57 @@
+{
+  "_comment_show_mappings": "Show name mappings - rename how folders are created",
+  "_comment_format": "\"DetectedName\": \"DesiredFolderName\"",
+  
+  "비마이보이즈": "비 마이 보이즈",
+  "저스트 메이크업 Just Makeup": "저스트 메이크업",
+  "꼬리에꼬리를무는그날이야기": "꼬리에 꼬리를 무는 그날 이야기",
+  "60 Minutes to Love": "60분 소개팅 30분마다 뉴페이스",
+  "EXchange": "환승연애",
+  "YOO Got a Minute": "짧아유",
+  "Screwballs": "도라이버",
+  "탐정들의영업비밀": "탐정들의 영업비밀",
+  "나는 SOLO 나는 솔로": "나는 SOLO",
+  "언프리티 랩스타 힙팝 프린세스": "언프리티 랩스타",
+  "Chef of Antarctica": "남극의 셰프",
+  "나는 SOLO 그 후, 사랑은 계속된다 (나솔사계)": "나는 SOLO 그 후, 사랑은 계속된다",
+  
+  "_comment_season_mappings": "Hard-coded season overrides - force specific seasons",
+  "_comment_season_format": "ShowName always goes to specified season",
+  "_comment_season_priority": "HIGHEST - overrides everything (filename, auto-detect, patterns)",
+  
+  "season_mappings": {
+    "꼬리에 꼬리를 무는 그날 이야기": "S03",
+    "언프리티 랩스타": "S04"
+  },
+  
+  
+  "_comment_season_patterns": "Auto-detect season from show name with numbers",
+  "_comment_pattern_example": "싱어게인4 → 싱어게인/S04/, 싱어게인3 → 싱어게인/S03/",
+  "_comment_pattern_mode": "Set to 'auto' to enable pattern detection",
+  "_comment_pattern_priority": "Applied BEFORE custom mappings, AFTER normalization",
+  
+  "season_patterns": {
+    "싱어게인": "auto",
+    "용감한 형사들": "auto",
+    "식스센스 시티투어": "auto"
+  },
+  
+  
+  "_comment_episode_markers": "Korean episode markers to detect and remove from show names",
+  "_comment_marker_purpose": "These words indicate episode info, not part of show name",
+  "_comment_marker_examples": "첫회 (first episode), 최종 (final), 특집 (special)",
+  "_comment_marker_custom": "Add any new markers you discover here",
+  
+  "episode_markers": [
+    "최종",
+    "최종회",
+    "첫회",
+    "첫방송",
+    "첫 방송",
+    "마지막회",
+    "마지막 회",
+    "특집",
+    "특별편",
+    "파일럿"
+  ]
+}
