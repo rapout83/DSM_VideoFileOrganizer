@@ -22,15 +22,16 @@ SEASON_OVERRIDES = {}
 # --- CORE LOGIC FUNCTIONS (Keep as is, no changes needed for these helpers) ---
 
 
-def wait_for_file_stability(file_path, check_interval=1, stable_time=3, max_wait=60):
+def wait_for_file_stability(file_path, check_interval=1, stable_time=5, max_wait=60, initial_delay=2):
     """
-    Wait until a file's size stops changing, indicating it's fully written.
+    Wait until a file's size stops changing and is no longer locked, indicating it's fully written.
 
     Args:
         file_path: Path object to the file
         check_interval: Seconds between size checks (default: 1)
-        stable_time: Seconds the file must remain unchanged (default: 3)
+        stable_time: Seconds the file must remain unchanged (default: 5)
         max_wait: Maximum seconds to wait before giving up (default: 60)
+        initial_delay: Initial delay before starting checks to let copy operations start (default: 2)
 
     Returns:
         True if file is stable, False if max_wait exceeded or file doesn't exist
@@ -38,9 +39,17 @@ def wait_for_file_stability(file_path, check_interval=1, stable_time=3, max_wait
     if not file_path.exists():
         return False
 
+    # Initial delay to let copy/download operations get started
+    # This prevents race conditions when detecting newly created files
+    if initial_delay > 0:
+        time.sleep(initial_delay)
+
+    if not file_path.exists():
+        return False
+
     last_size = -1
     stable_count = 0
-    elapsed_time = 0
+    elapsed_time = initial_delay
 
     while elapsed_time < max_wait:
         try:
@@ -48,11 +57,22 @@ def wait_for_file_stability(file_path, check_interval=1, stable_time=3, max_wait
 
             # File size hasn't changed and is greater than 0
             if current_size == last_size and current_size > 0:
-                stable_count += 1
+                # Try to open the file to check if it's locked by another process
+                try:
+                    # Attempt to open file in exclusive mode (will fail if file is locked)
+                    with open(file_path, 'rb') as f:
+                        # Try to read a byte to ensure file is readable
+                        f.read(1)
 
-                # File has been stable for the required duration
-                if stable_count >= (stable_time / check_interval):
-                    return True
+                    # File is accessible and size is stable
+                    stable_count += 1
+
+                    # File has been stable for the required duration
+                    if stable_count >= (stable_time / check_interval):
+                        return True
+                except (IOError, OSError, PermissionError):
+                    # File is locked or not accessible, reset counter
+                    stable_count = 0
             else:
                 # Size changed, reset stability counter
                 stable_count = 0
