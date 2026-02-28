@@ -394,9 +394,13 @@ class FileEventHandler(FileSystemEventHandler):
     def __init__(self, source_dir, config_file, auto_season, log_file):
         super().__init__()
         self.source_dir = Path(source_dir).resolve()
+        self.config_file = config_file
         self.log_file = log_file
         self.auto_season = auto_season
-        self.config_data = load_custom_mappings(config_file) if config_file else {}
+
+    def _load_config(self):
+        """Reload config from disk on every event so JSON edits take effect immediately."""
+        return load_custom_mappings(self.config_file) if self.config_file else {}
 
     def _is_relevant(self, event):
         """Helper to ensure we only process top-level files."""
@@ -416,7 +420,7 @@ class FileEventHandler(FileSystemEventHandler):
                 organize_single_file(
                     file_path,
                     self.source_dir,
-                    self.config_data,
+                    self._load_config(),
                     self.auto_season,
                     self.log_file,
                 )
@@ -435,7 +439,7 @@ class FileEventHandler(FileSystemEventHandler):
                 organize_single_file(
                     file_path,
                     self.source_dir,
-                    self.config_data,
+                    self._load_config(),
                     self.auto_season,
                     self.log_file,
                 )
@@ -459,7 +463,7 @@ class FileEventHandler(FileSystemEventHandler):
                     organize_single_file(
                         file_path,
                         self.source_dir,
-                        self.config_data,
+                        self._load_config(),
                         self.auto_season,
                         self.log_file,
                     )
